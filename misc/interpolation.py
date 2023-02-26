@@ -16,6 +16,7 @@ import rasterio as rio
 import rasterio.mask
 import rasterio.plot as rio_pl
 import matplotlib.image as mpimg
+import os
 #import rioxarray as rxr
 
 from rasterio.plot import show
@@ -26,7 +27,7 @@ from rasterio.profiles import DefaultGTiffProfile
 from sklearn.metrics import mean_squared_error
 from shapely.geometry import box
 from shapely.geometry import Polygon, Point
-#from osgeo import gdal
+import contextily as cx
 #from pykrige.ok import OrdinaryKriging
 
 # import arcpy and environmental settings
@@ -34,243 +35,120 @@ import arcpy
 from arcpy.sa import *
 arcpy.env.overwriteOutput = True
 
-def interpolation_method(year,method,extent):
+def interpolation(method, input_point, out_raster, 
+                         z_field, out_ga_layer, extent, mask,
+                         in_explanatory_rasters = None):
+    
     select_method = str(method)
+    start_time = time.time()
+
+# ---------------------------- IDW ---------------------------------
     if   select_method == "idw":
-        print("This is Inverse Distance Weighting interpolation method")
-        with arcpy.EnvManager(extent=extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), cellSize = 30):
-                 arcpy.ga.IDW(in_features = gis_path+"Dry"+year+'.shp', 
-                 z_field = "ResultValu", 
+        print("Interpolation using the Inverse Distance Weighting (IDW) method")
+        with arcpy.EnvManager(extent=extent, mask = mask, outputCoordinateSystem = arcpy.SpatialReference(3086), 
+                              cellSize = 30, parallelProcessingFactor = "80%"):
+                 arcpy.ga.IDW(in_features = input_point, 
+                 z_field = z_field, 
 #                This layer is not generated  
-                 out_ga_layer = gis_path + "dryIDW.lyrx",
-                 out_raster   = gis_path + "dryIDW.tif"
+                 out_ga_layer = out_ga_layer,
+                 out_raster   = out_raster
                 )
-
-        with arcpy.EnvManager(extent=extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), cellSize = 30):
-                 arcpy.ga.IDW(in_features = gis_path+"Wet"+year+'.shp', 
-                 z_field = "ResultValu", 
-#                This layer is not generated  
-                 out_ga_layer = gis_path + "wetIDW.lyrx",
-                 out_raster   = gis_path + "wetIDW.tif"
-                )
+                 
+        print("--- Time lapse: %s seconds ---" % (time.time() - start_time))
+        return out_raster
                 
-        fig, axes = plt.subplots(1,2, figsize=(18, 8))
-
-        fig.suptitle("{} (Parameter: {}).".format(Area, Para),fontsize=20)
-
-        gdfDryShp.plot(ax = axes[0], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[0], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[0],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-#       Raster must added after basemap
-        with rasterio.open(gis_path + "dryIDW.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[0], cmap="RdBu_r")
-            axes[0].set_title('Dry Season')
-#           Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[0],shrink=0.8)
-
-            gdfWetShp.plot(ax = axes[1], marker = 'o', color = 'green', markersize = 6)
-            extentShp.plot(ax = axes[1], color='none', edgecolor='black')
-            cx.add_basemap(ax = axes[1],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-#       Raster must added after basemap
-        with rasterio.open(gis_path + "wetIDW.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[1], cmap="RdBu_r")
-            axes[1].set_title('Wet Season')
-#           Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[1],shrink=0.8)       
-                
+# ---------------------- Ordinary Kriging ---------------------------
     elif select_method == "ok":
-        print("This is Ordinary Kriging interpolation method")
+        print("Interpolation using the Ordinary Kriging method")
 #       Calculate dry season
         search_radius = 20000
-        with arcpy.EnvManager(extent = extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), cellSize = 30):
-            out_surface_raster = arcpy.sa.Kriging(in_point_features = gis_path+"Dry"+year+'.shp',
-                                          z_field = "ResultValu",
+        with arcpy.EnvManager(extent = extent, mask = mask,outputCoordinateSystem = arcpy.SpatialReference(3086), 
+                              cellSize = 30, parallelProcessingFactor = "80%"):
+            out_surface_raster = arcpy.sa.Kriging(in_point_features = input_point,
+                                          z_field = z_field,
                                           kriging_model = KrigingModelOrdinary("Spherical # # # #"),
                                          search_radius = RadiusVariable(20, search_radius))                           
-#                                          "Spherical 0.000486 # # #",
-#                                          0.000764192085967863,
-#                                          "VARIABLE 12",
-        out_surface_raster.save(gis_path+"dryKriging.tif")
-#       Calculate wet season
-        with arcpy.EnvManager(extent = extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), cellSize = 30):
-            out_surface_raster = arcpy.sa.Kriging(gis_path+"Wet"+year+'.shp',
-                                          "ResultValu",
-                                         kriging_model = KrigingModelOrdinary("Spherical # # # #"),
-                                         search_radius = RadiusVariable(20, search_radius))
-#                                           "Spherical 0.000486 # # #",
-#                                           0.000764192085967863,
-#                                          "VARIABLE 12",
-                                          
-        out_surface_raster.save(gis_path+"wetKriging.tif")
-        
-#       Draw the map
-        fig, axes = plt.subplots(1,2, figsize=(18, 8))
-        fig.suptitle("{} (Parameter: {}).".format(Area, Para),fontsize=20)
-        gdfDryShp.plot(ax = axes[0], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[0], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[0],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-#       Raster must added after basemap
-        with rasterio.open(gis_path + "dryKriging.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[0], cmap="RdBu_r")
-            axes[0].set_title('Dry Season')
-            # Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[0],shrink=0.8)
-        gdfWetShp.plot(ax = axes[1], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[1], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[1],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-        # Raster must added after basemap
-        with rasterio.open(gis_path + "wetKriging.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[1], cmap="RdBu_r")
-            axes[1].set_title('Wet Season')
-            # Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[1],shrink=0.8)
 
+        out_surface_raster.save(out_raster)
+        #Generate GA layer of ordinary kriging
+        out_cv_table = out_raster.replace('.tif','_table')     
+        ok_out = arcpy.ga.ExploratoryInterpolation(in_features = input_point, value_field = z_field, 
+                                               out_cv_table = out_cv_table, out_geostat_layer = out_ga_layer, 
+                                               interp_methods = ['ORDINARY_KRIGING'], comparison_method = 'SINGLE', 
+                                               criterion = 'ACCURACY')
+        arcpy.conversion.ExportTable(out_cv_table, out_cv_table + '.csv')
+        table = pd.read_csv(out_cv_table + '.csv')
+        table = table[table['DESCR'] == 'Ordinary Kriging – Default'][['DESCR','ME','ME_STD','RMSE']].rename(columns = {"RMSE": "rootMeanSquareError", "ME": "meanError",'ME_STD':'meanStandardizedError'})
+        os.remove(out_cv_table + '.csv'+'.xml')
+        os.remove(out_cv_table + '.csv')
+        
+        table['DESCR'] = 'Ordinary Kriging'
+        table = table.set_index('DESCR')
+        table.index.name= None
+        return out_raster, table
+
+        
+# ---------------------- Empirical Bayesian Kriging ---------------------------
     elif select_method == "ebk":
-        print("This is Empirical Bayesian Kriging interpolation method")
+        print("Interpolation using the Empirical Bayesian Kriging method")
         start_time = time.time()
 
-        with arcpy.EnvManager(extent = extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), 
+        with arcpy.EnvManager(extent = extent, mask = mask,outputCoordinateSystem = arcpy.SpatialReference(3086), 
                               cellSize = 30, parallelProcessingFactor = "80%"):
-            arcpy.ga.EmpiricalBayesianKriging(in_features = gis_path+"Dry"+year+'.shp', 
-                                      z_field = "ResultValu", 
+            arcpy.ga.EmpiricalBayesianKriging(in_features = input_point, 
+                                      z_field = z_field, 
                                     # This layer is not generated  
-                                      out_ga_layer = gis_path+"EBK_Dry_Layer",
-                                      out_raster   = gis_path+"dryEBK.tif",
+                                      out_ga_layer = out_ga_layer,
+                                      out_raster   = out_raster,
                                      # transformation_type = 'EMPIRICAL',
                                     search_neighborhood = arcpy.SearchNeighborhoodSmoothCircular(10000,0.5))
-    
-            arcpy.ga.EmpiricalBayesianKriging(in_features = gis_path+"Wet"+year+'.shp', 
-                                      z_field = "ResultValu", 
-                                     # This layer is not generated  
-                                      out_ga_layer = gis_path+"EBK_Wet_Layer",
-                                      out_raster = gis_path+"wetEBK.tif",
-                                     # transformation_type = 'EMPIRICAL',
-                                    search_neighborhood = arcpy.SearchNeighborhoodSmoothCircular(10000,0.5))
-    
         print("--- Time lapse: %s seconds ---" % (time.time() - start_time))
-        
-        fig, axes = plt.subplots(1,2, figsize=(18, 8))
-
-        fig.suptitle("{} (Parameter: {}).".format(Area, Para),fontsize=20)
-
-        gdfDryShp.plot(ax = axes[0], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[0], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[0],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-        # Raster must added after basemap
-        with rasterio.open(gis_path + "dryEBK.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[0], cmap="RdBu_r")
-            axes[0].set_title('Dry Season')
-#           Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[0],shrink=0.8)
-
-
-        gdfWetShp.plot(ax = axes[1], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[1], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[1],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-#       Raster must added after basemap
-        with rasterio.open(gis_path + "wetEBK.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[1], cmap="RdBu_r")
-            axes[1].set_title('Wet Season')
-#       Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[1],shrink=0.8)
-
-    elif select_method == "rk":
-        print("This is Regression Kriging interpolation method")
-        ma_table = pd.read_csv(gis_path + "MA_table.csv")
-        ra_fname = 'basy_{}.tif'.format(ma_table[ma_table['LONG_NAME']== Area]['MA_AreaID'].iloc[0].astype(str))
-        fig, ax = plt.subplots(1, figsize=(18, 8))
-
-        fig.suptitle("{} (covariate: {}).".format(Area, 'basymetry'),fontsize=20)
-
-        gdfDryShp.plot(ax = ax, marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = ax, color='none', edgecolor='black')
-        cx.add_basemap(ax = ax,source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-#       Raster must added after basemap
-        with rasterio.open(gis_path + "covariates/basymetry/basy_18.tif", "r+") as covar:
-            band = covar.read(1)
-            #band = numpy.ma.masked_array(band, mask=(band < -1000))
-            #band = numpy.ma.masked_array(band, mask=(band > 1000))
-            band = np.ma.masked_where((band < -100) | (band > 100), band)
-            retted = rio_pl.show(band, transform=covar.transform, ax = ax, cmap="RdBu_r")
-            ax.set_title('Basymetry')
-            # Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=ax,shrink=0.8)
+        return out_raster
             
-        start_time = time.time()
-
-        with arcpy.EnvManager(extent = extent, mask = path+"GIS_data/ch.shp",outputCoordinateSystem = arcpy.SpatialReference(3086), 
+# ---------------------- Empirical Bayesian Kriging ---------------------------
+    elif select_method == "rk":
+        print("Interpolation using the Regression Kriging method")
+        with arcpy.EnvManager(extent = extent, mask = mask,outputCoordinateSystem = arcpy.SpatialReference(3086), 
                               cellSize = 30, parallelProcessingFactor = "80%"):
-            out_surface_raster = arcpy.EBKRegressionPrediction_ga(in_features = gis_path+"Dry"+year+'.shp', 
-                                                                   dependent_field = "ResultValu", 
-                                                                  out_ga_layer = gis_path + "dryRK_GA",
-                                                                    out_raster = gis_path + "dryRK.tif",
-                                                                  in_explanatory_rasters = gis_path + "covariates/{}".format('NCEI_DEM_30m.tif'),
+            out_surface_raster = arcpy.EBKRegressionPrediction_ga(in_features = input_point, 
+                                                                   dependent_field = z_field, 
+                                                                  out_ga_layer = out_ga_layer,
+                                                                    out_raster = out_raster,
+                                                                  in_explanatory_rasters = in_explanatory_rasters,
                                                                    transformation_type = 'EMPIRICAL',
                                                                   search_neighborhood = arcpy.SearchNeighborhoodSmoothCircular(10000,0.5)) 
-
-            out_surface_raster = arcpy.EBKRegressionPrediction_ga(in_features = gis_path+"Wet"+year+'.shp', 
-                                                                   dependent_field = "ResultValu",
-                                                                  out_ga_layer = gis_path + "wetRK_GA",
-                                                                  out_raster = gis_path + "wetRK.tif",
-                                                                  in_explanatory_rasters = gis_path + "covariates/{}".format('NCEI_DEM_30m.tif'),
-                                                                   transformation_type = 'EMPIRICAL',
-                                                                  search_neighborhood = arcpy.SearchNeighborhoodSmoothCircular(10000,0.5))
-
         print("--- Time lapse: %s seconds ---" % (time.time() - start_time))
-        
-        fig, axes = plt.subplots(1,2, figsize=(18, 8))
+        return out_raster
 
-        fig.suptitle("{} (Parameter: {}).".format(Area, Para),fontsize=20)
+# Plot interpolated raster
+def plot_raster(gdf, extent, raster, title, ax, fig):
+    gdf.plot(ax = ax, marker = 'o', color = 'green', markersize = 6)
+    extent.plot(ax = ax, color='none', edgecolor='black')
+    cx.add_basemap(ax = ax,source=cx.providers.Stamen.TonerLite,crs=gdf.crs)
 
-        gdfDryShp.plot(ax = axes[0], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[0], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[0],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
-
-        # Raster must added after basemap
-        with rasterio.open(gis_path + "dryRK.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[0], cmap="RdBu_r")
-            axes[0].set_title('Dry Season')
-            # Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[0],shrink=0.8)
+    #       Raster must added after basemap
+    with rasterio.open(raster, "r+") as dryOK:
+        band = dryOK.read(1)
+        band = np.ma.masked_array(band, mask=(band < 0))
+        retted = rio_pl.show(band, transform=dryOK.transform, ax = ax, cmap="RdBu_r")
+        ax.set_title(title)
+    #           Add legend
+        im = retted.get_images()[1]
+        fig.colorbar(im, ax=ax,shrink=0.8)
 
 
-        gdfWetShp.plot(ax = axes[1], marker = 'o', color = 'green', markersize = 6)
-        extentShp.plot(ax = axes[1], color='none', edgecolor='black')
-        cx.add_basemap(ax = axes[1],source=cx.providers.Stamen.TonerLite,crs=gdfDryShp.crs)
+# Plot covariate map        
+def plot_covariate(Area,pt_Shp,extentShp,ra_fname,ax,fig):
+    pt_Shp.plot(ax = ax, marker = 'o', color = 'green', markersize = 6)
+    extentShp.plot(ax = ax, color='none', edgecolor='black')
+    cx.add_basemap(ax = ax,source=cx.providers.Stamen.TonerLite,crs=pt_Shp.crs)
 
-        # Raster must added after basemap
-        with rasterio.open(gis_path + "wetRK.tif", "r+") as dryOK:
-            band = dryOK.read(1)
-            band = numpy.ma.masked_array(band, mask=(band < 0))
-            retted = rio_pl.show(band, transform=dryOK.transform, ax = axes[1], cmap="RdBu_r")
-            axes[1].set_title('Wet Season')
-            # Add legend
-            im = retted.get_images()[1]
-            fig.colorbar(im, ax=axes[1],shrink=0.8)
+    #       Raster must added after basemap
+    with rasterio.open(ra_fname, "r+") as covar:
+        band = covar.read(1)
+        band = np.ma.masked_where((band < -100) | (band > 100), band)
+        retted = rio_pl.show(band, transform=covar.transform, ax = ax, cmap="RdBu_r")
+        ax.set_title('Bathymetry')
+        # Add legend
+        im = retted.get_images()[1]
+        fig.colorbar(im, ax=ax,shrink=0.6)

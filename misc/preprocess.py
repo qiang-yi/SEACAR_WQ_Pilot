@@ -7,6 +7,7 @@ Created on Wed Feb 15 09:35:25 2023
 
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 
 def preprocessDis(df,col_ls,para_ls):
     
@@ -58,8 +59,18 @@ def preprocessCon(df,col_ls,para_ls):
     df.drop(df[(df['ParameterName'] == 'Secchi Depth') & 
                      (df['Year'] < 1995)].index, inplace=True)
     
+    # Remove salinity outlier
+    df.drop(df[(df['ParameterName'] == 'Salinity') & 
+                     (df['ResultValue'] > 100)].index, inplace=True)
+    
+    # Remove total nitrogen outlier
+    df.drop(df[(df['ParameterName'] == 'Dissolved Oxygen') & 
+                     (df['ResultValue'] > 100)].index, inplace=True)
+    
     return df
 
+# Preprocess dis and con data and concatinate dis and con data
+# The process include select daytime data points from con data
 def preprocess(dis, con1, con2):
     # read csv files
     dfDis_orig = pd.read_csv(dis)
@@ -77,3 +88,46 @@ def preprocess(dis, con1, con2):
     dfDis  = preprocessDis(dfDis_orig, col_ls, para_ls)
     dfCon  = pd.concat([dfCon1,dfCon2],ignore_index=True)
     return dfDis, dfCon
+
+
+def combine_dis_con_dry(df_dis,df_con, year):
+    
+    year_start = str(int(year)-1)
+    year_end   = str(year)
+    dry_start,dry_end = ('11/01/'+year_start),('04/30/'+year_end)
+    
+    df_dis["timestamp"]=  pd.to_datetime(df_dis['SampleDate'])
+    df_con["timestamp"]=  pd.to_datetime(df_con['SampleDate'])
+    
+    df_dis = df_dis[(df_dis['timestamp'] > dry_start)&(df_dis['timestamp'] < dry_end)]
+    df_dis_mean = df_dis.groupby(['Latitude_DD','Longitude_DD',"ParameterName","ManagedAreaName"])["ResultValue"].agg("mean").reset_index()
+
+    df_con = df_con[(df_con['timestamp'] > dry_start)&(df_con['timestamp'] < dry_end)]
+    df_con_mean = df_con.groupby(['Latitude_DD','Longitude_DD',"ParameterName","ManagedAreaName"])["ResultValue"].agg("mean").reset_index()
+   
+    # Concatenate dry and wet dataframes
+    df_mean = pd.concat([df_dis_mean,df_con_mean],ignore_index=True)
+    gdf = gpd.GeoDataFrame(df_mean, geometry = gpd.points_from_xy(df_mean.Longitude_DD, df_mean.Latitude_DD), crs="EPSG:4326")
+    
+    return df_mean, gdf
+
+def combine_dis_con_wet(df_dis,df_con, year):
+    
+    year_start = str(int(year)-1)
+    year_end   = str(year)
+    wet_start,wet_end = ('05/01/'+year_end),('10/31/'+year_end)
+    
+    df_dis["timestamp"]=  pd.to_datetime(df_dis['SampleDate'])
+    df_con["timestamp"]=  pd.to_datetime(df_con['SampleDate'])
+
+    df_dis = df_dis[(df_dis['timestamp'] > wet_start)&(df_dis['timestamp'] < wet_end)]
+    df_dis_mean = df_dis.groupby(['Latitude_DD','Longitude_DD',"ParameterName","ManagedAreaName"])["ResultValue"].agg("mean").reset_index()
+
+    df_con = df_con[(df_con['timestamp'] > wet_start)&(df_con['timestamp'] < wet_end)]
+    df_con_mean = df_con.groupby(['Latitude_DD','Longitude_DD',"ParameterName","ManagedAreaName"])["ResultValue"].agg("mean").reset_index()
+   
+    # Concatenate dry and wet dataframes
+    df_mean = pd.concat([df_dis_mean,df_con_mean],ignore_index=True)
+    gdf = gpd.GeoDataFrame(df_mean, geometry = gpd.points_from_xy(df_mean.Longitude_DD, df_mean.Latitude_DD), crs="EPSG:4326")
+    
+    return df_mean, gdf
