@@ -33,12 +33,12 @@ Ordinary least square regression (OLS) and Pearson correlation analyses have bee
 1)	Preprocessing, including outlier removal, daytime data selection, combine continuous and discrete data, and select data in specific managed areas and years
 2)	Aggregate data in identical locations to mean values in wet and dry seasons (tentative dry season: Nov. – Apr., wet season: May to Oct.)
 3)	Extract values from covariate rasters to water quality locations
-4)	Conduct Pearson correlation and OLS regression analysis
+4)	Conduct Pearson correlation and OLS regression analysis in wet and dry seasons
 
 Regression and correlation analysis are documented in:
 
-[Covariates_Analysis_MA]()
+[Covariates_Analysis_All](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_All.ipynb): Analysis with 2016-2018 data in all managed areas
+[Covariates_Analysis_MA](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_MA.ipynb): Analysis with 2016-2018 data in Charlotte Harbor, Estero Bay and Big Bend
 
 
-# Task 1b: Exploratory Analysis
-- [Interpolation_ArcGIS.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Interpolation_ArcGIS.ipynb): Spatial interpolation using testing dataset.
+### 1b.2 Regression Analysis with WQ Parameters

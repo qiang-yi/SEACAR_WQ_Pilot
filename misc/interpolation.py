@@ -152,3 +152,14 @@ def plot_covariate(Area,pt_Shp,extentShp,ra_fname,ax,fig):
         # Add legend
         im = retted.get_images()[1]
         fig.colorbar(im, ax=ax,shrink=0.6)
+        
+# Extract validation data from saved GA layers
+def extract_val_result(inLayer, index):
+    cvResult = arcpy.CrossValidation_ga(inLayer)
+    Stat = pd.DataFrame(
+                {
+                  "meanError": round(float(cvResult.meanError),4),
+                  "meanStandardizedError": round(float(cvResult.meanStandardized),4),
+                  "rootMeanSquareError": round(float(cvResult.rootMeanSquare),4)
+                                              },index=[index])
+    return Stat
