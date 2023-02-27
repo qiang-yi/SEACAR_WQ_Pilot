@@ -30,15 +30,34 @@ Analyses in Task 1a are shared in:
 
 ### 1b.1 Regression Analysis with WQ Parameters
 Ordinary least square regression (OLS) and Pearson correlation analyses have been conducted to examine the relations between the potential covariates and water quality parameters. The analyses have been conducted with data from 2016 to 2018 in all managed areas and in separate managed areas. The general procedure is:
-1)	Preprocessing, including outlier removal, daytime data selection, combine continuous and discrete data, and select data in specific managed areas and years
-2)	Aggregate data in identical locations to mean values in wet and dry seasons (tentative dry season: Nov. – Apr., wet season: May to Oct.)
-3)	Extract values from covariate rasters to water quality locations
-4)	Conduct Pearson correlation and OLS regression analysis in wet and dry seasons
+1. 	Preprocessing, including outlier removal, daytime data selection, combine continuous and discrete data, and select data in specific managed areas and years
+2. 	Aggregate data in identical locations to mean values in wet and dry seasons (tentative dry season: Nov. – Apr., wet season: May to Oct.)
+3. 	Extract values from covariate rasters to water quality locations
+4.	Conduct Pearson correlation and OLS regression analysis in wet and dry seasons
 
 Regression and correlation analysis are documented in:
 
-[Covariates_Analysis_All](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_All.ipynb): Analysis with 2016-2018 data in all managed areas
-[Covariates_Analysis_MA](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_MA.ipynb): Analysis with 2016-2018 data in Charlotte Harbor, Estero Bay and Big Bend
+- [Covariates_Analysis_All](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_All.ipynb): Analysis with 2016-2018 data in all managed areas
+- [Covariates_Analysis_MA](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Covariates_Analysis_MA.ipynb): Analysis with 2016-2018 data in Charlotte Harbor, Estero Bay and Big Bend
 
+### 1b.2 Evaluation of Interpolation Methods
+The following interpolation methods are selected for evaluation:
+- <u>Inverse Distance Weighting (IDW)</u>: weighted average of observed data points in the neighborhood (simplest, fast)
+- <u>Ordinary Kriging (OK)</u>: estimate values by fitting a theoretical variogram model (established method, proven performance)
+- <u>Empirical Bayesian Kriging (EBK)</u>: estimate values by fitting a non-parametric variogram model (flexible, local model fitting, better suited for complex data pattern)
+- <u>EBK Regression Prediction (Regression Kriging or RK)</u>: Extends EBK with explanatory variable that known to affect the predicted values (better suited if there are influential covariates)
 
-### 1b.2 Regression Analysis with WQ Parameters
+The interpolation programs call functions from ArcGIS python interface (arcpy). The performance of these are evaluated through cross-validation. The purpose is to select the best performed method for batch production. The following metrics were derived to evaluate model performance:
+
+- <u>Mean Error (ME)</u>: measures the average absolute difference between the observed and predicted values (measures biases)
+- <u>Root Mean Square Error (RMSE)</u>: square root of average squared difference between observed and predicted values (measures accuracy)
+- <u>Mean Standardized Error (MSE)</u> standardized by standard deviation of observed values (accuracy relative to data variability)
+
+Performance evaluation of interpolation methods are documented in:
+
+- [Interpolation_ArcGIS_CH.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Interpolation_ArcGIS_CH.ipynb): Interpolation evaluation in Charlotte Harbor
+- [Interpolation_ArcGIS_Estero_Bay.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Interpolation_ArcGIS_Estero_Bay.ipynb): Interpolation evaluation in Estero Bay
+- [Interpolation_ArcGIS_Big_Bend.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/Interpolation_ArcGIS_Big_Bend.ipynb): Interpolation evaluation in Big Bend
+- [RK_Covariate_Assessment_CH.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/RK_Covariate_Assessment_CH.ipynb): Evaluation of regression kriging with different covariates in Charlotte Harbor
+- [RK_Covariate_Assessment_EB.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/RK_Covariate_Assessment_EB.ipynb): Evaluation of regression kriging with different covariates in Estero Bay
+- [RK_Covariate_Assessment_BB.ipynb](https://github.com/qiang-yi/SEACAR_WQ_Pilot/blob/main/RK_Covariate_Assessment_EB.ipynb): Evaluation of regression kriging with different covariates in Big Bend
