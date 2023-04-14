@@ -165,7 +165,7 @@ def plot_covariate(Area,pt_Shp,extentShp,ra_fname,title, ax,fig):
     #       Raster must added after basemap
     with rasterio.open(ra_fname, "r+") as covar:
         band = covar.read(1)
-        band = np.ma.masked_where((band < -100) | (band > 100), band)
+        band = np.ma.masked_where((band < -200000) | (band > 200000), band)
         retted = rio_pl.show(band, transform=covar.transform, ax = ax, cmap="RdBu_r")
         ax.set_title(title)
         # Add legend
