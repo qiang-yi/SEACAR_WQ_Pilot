@@ -120,7 +120,7 @@ def interpolation(method, input_point, out_raster,
                                       out_raster   = out_raster,
                                      # transformation_type = 'EMPIRICAL',
                                     search_neighborhood = arcpy.SearchNeighborhoodSmoothCircular(smooth_r,0.5))
-            
+            arcpy.GALayerToRasters_ga(out_ga_layer, ga_to_raster,"PREDICTION_STANDARD_ERROR", None, c_size, 1, 1, "")
         ValStat = extract_val_result(out_ga_layer, method.upper())
         print("--- Time lapse: %s seconds ---" % (time.time() - start_time))
         return out_raster, ValStat
@@ -174,3 +174,4 @@ def plot_covariate(Area,pt_Shp,extentShp,ra_fname,title, ax,fig):
         im = retted.get_images()[1]
         fig.colorbar(im, ax=ax,shrink=0.6)
         
+ 
