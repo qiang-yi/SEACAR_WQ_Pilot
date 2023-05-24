@@ -117,7 +117,7 @@ def interpolation(method, input_point, out_raster,
     
 
     
-def interpolation_auto(method,gis_path,dataframe,managed_area,Year,Season,start_date,end_date,parameter,covariates,out_raster,out_ga_layer,predict_std_err):
+def interpolation_auto(method,gis_path,dataframe,managed_area,Year,Season,start_date,end_date,parameter,covariates):
     
     col_ls = ['RowID','ParameterName','ParameterUnits','ProgramLocationID','ActivityType','ManagedAreaName',
                    'SampleDate','Year','Month','ResultValue','ValueQualifier','Latitude_DD','Longitude_DD']
@@ -136,8 +136,9 @@ def interpolation_auto(method,gis_path,dataframe,managed_area,Year,Season,start_
                     'Lemon Bay Aquatic Preserve':'Lemon Bay','Cape Haze Aquatic Preserve':'Cape Haze','Pine Island Sound Aquatic Preserve':'Pine Island Sound'}
     dictArea3    = {'Gasparilla Sound-Charlotte Harbor Aquatic Preserve':'ch','Big Bend Seagrasses Aquatic Preserve':'bb',
                     'Guana Tolomato Matanzas National Estuarine Research Reserve':'gtm','Estero Bay Aquatic Preserve':'eb',
-                    'Biscayne Bay Aquatic Preserve':'bbay','Matlacha Pass Aquatic Preserve':'Matlacha Pass AP',
-                    'Lemon Bay Aquatic Preserve':'Lemon Bay','Cape Haze Aquatic Preserve':'Cape Haze','Pine Island Sound Aquatic Preserve':'Pine Island'}
+                    'Biscayne Bay Aquatic Preserve':'bbay','Matlacha Pass Aquatic Preserve':'mp',
+                    'Lemon Bay Aquatic Preserve':'lb','Cape Haze Aquatic Preserve':'ch','Pine Island Sound Aquatic Preserve':'pi'}
+    #dictArea4 = {'Charlotte Harbor':"ch",'Big Bend':"bb",'GTM Reserve':"gtm",'Estero Bay':"eb",'Biscayne Bay':"bbay"}
 
     dictPara = {"Salinity":'S','Total Nitrogen':'TN','Dissolved Oxygen':'DO','Turbidity':'T','Secchi Depth':'SD'}
     dictUnits   = {"Salinity":"ppt","Total Nitrogen": "mg/L","Dissolved Oxygen": "mg/L","Turbidity": "NTU", "Secchi Depth": "m"}
@@ -160,9 +161,9 @@ def interpolation_auto(method,gis_path,dataframe,managed_area,Year,Season,start_
     start_date,end_date = start_date,end_date
     Para   = parameter
     covariates = covariates
-    fname = [dictArea[Area],Year,Season[0:3],dictPara[Para]]
+    fname = [dictArea[Area],dictArea3[Area],Year,Season,dictPara[Para]]
     
-    input_pt = gis_path+"input_point/{}/{}{}_{}.shp".format(*fname)
+    input_pt = gis_path+"input_point/{}/{}_{}{}_{}.shp".format(*fname)
     
     df,gdf= select_aggr_area_season(dataframe,start_date,end_date, Area, Para)
     
@@ -184,10 +185,10 @@ def interpolation_auto(method,gis_path,dataframe,managed_area,Year,Season,start_
                 in_explanatory_rasters.append(in_explanatory_raster)
 
         in_features = input_pt
-        out_raster = gis_path +"output_raster/{}/{}{}_{}.tif".format(*out_raster)
+        out_raster = gis_path +"output_raster/{}/{}_{}{}_{}.tif".format(*fname)
         value_field = "ResultValu"
-        out_ga_layer = gis_path +"ga_layer/{}/{}{}_{}.lyrx".format(*out_ga_layer)
-        ga_to_raster = gis_path + 'standard_error_prediction/{}/{}{}_{}.tif'.format(*predict_std_err)
+        out_ga_layer = gis_path +"ga_layer/{}/{}_{}{}_{}.lyrx".format(*fname)
+        ga_to_raster = gis_path + 'standard_error_prediction/{}/{}_{}{}_{}_sep.tif'.format(*fname)
         in_explanatory_rasters = in_explanatory_rasters
         mask = gis_path+ '{}.shp'.format(dictArea3[Area])
 
