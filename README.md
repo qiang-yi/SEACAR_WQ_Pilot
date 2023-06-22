@@ -74,4 +74,11 @@ Regression Kriging is applied to interpolate water quality parameters (Dissolved
 
 # Task 1c: Gap Analysis
 ### 1c.1 Overall Visualization
-Kernel density maps and aggregated standard error of prediction (SEP) maps are created in pairs for visual detection of areas with a low-density sampling density and high standard error of prediction. The maps are created from all data points from 2015 to 2019 for each parameter and in each managed area.
+Kernel density estimation (KDE) maps and aggregated standard error of prediction (SEP) maps are created in pairs for visual detection of sampling gaps and redundancies. The KDE and SEP maps are created from all data points from 2015 to 2019 for each parameter and in each managed area.
+
+[Gap_Analysis_Part1.ipynb](https://nbviewer.org/github/qiang-yi/SEACAR_WQ_Pilot/blob/main/Gap_Analysis/Gap_Analysis_Part1.ipynb): Pairs of KDE and SEP maps for all sampling points from 2015 to 2019.
+
+### 1c.2 Seasonal Visualization
+Kernel density estimation (KDE) maps and aggregated standard error of prediction (SEP) maps are created for spring, summer, fall and winter from 2015 to 2019 for each parameter and in each managed area.
+
+[Gap_Analysis_Part2.ipynb](https://nbviewer.org/github/qiang-yi/SEACAR_WQ_Pilot/blob/main/Gap_Analysis/Gap_Analysis_Part2.ipynb): Pairs of seasonal KDE and SEP maps.
